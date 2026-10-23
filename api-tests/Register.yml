@@ -1,0 +1,56 @@
+info:
+  name: Register
+  type: http
+  seq: 2
+
+http:
+  method: POST
+  url: "{{baseURL}}/api/users"
+  body:
+    type: json
+    data: |-
+      {
+        "firstName": "Test",
+        "lastName": "Student",
+        "login": "{{newLogin}}",
+        "password": "{{newPassword}}",
+        "email": "student@example.com"
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: before-request
+      code: |-
+        // Registering the same login twice returns 409, so make each run unique
+        bru.setVar("newLogin", `student${Date.now()}`);
+        bru.setVar("newPassword", "Passw0rd!");
+    - type: tests
+      code: |-
+        const body = res.getBody();
+
+        test("responds 201 Created", function () {
+          expect(res.getStatus()).to.equal(201);
+        });
+
+        test("returns a token and the new user", function () {
+          expect(body.token).to.be.a("string");
+          expect(body.user.login).to.equal(bru.getVar("newLogin"));
+        });
+
+        test("never returns the password", function () {
+          expect(body.user).to.not.have.property("password");
+        });
+
+        test("ignores any role sent by the client", function () {
+          expect(body.user.role).to.equal("user");
+        });
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+docs: |-
+  Creates a new account. Does not change the logged-in user for the requests that follow.

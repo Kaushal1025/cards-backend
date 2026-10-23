@@ -3,3 +3,7 @@ name: Production
 variables:
   - name: baseURL
     value: http://your-server-address:5000
+  - name: login
+    value: johnaedo
+  - name: password
+    value: ucf123!

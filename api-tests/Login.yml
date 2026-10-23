@@ -1,0 +1,54 @@
+info:
+  name: Login
+  type: http
+  seq: 3
+
+http:
+  method: POST
+  url: "{{baseURL}}/api/auth/login"
+  body:
+    type: json
+    data: |-
+      {
+        "login": "{{login}}",
+        "password": "{{password}}"
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: after-response
+      code: |-
+        // Save the token and user id for every request that follows
+        if (res.getStatus() === 200) {
+          bru.setVar("token", res.getBody().token);
+          bru.setVar("userId", res.getBody().user._id);
+        }
+    - type: tests
+      code: |-
+        const body = res.getBody();
+
+        test("responds 200 OK", function () {
+          expect(res.getStatus()).to.equal(200);
+        });
+
+        test("returns a token", function () {
+          expect(body.token).to.be.a("string").and.not.be.empty;
+        });
+
+        test("returns the user that logged in", function () {
+          expect(body.user.login).to.equal(bru.getEnvVar("login"));
+        });
+
+        test("never returns the password", function () {
+          expect(body.user).to.not.have.property("password");
+        });
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+docs: |-
+  Logs in as the user in the environment and saves {{token}} and {{userId}} for later requests.

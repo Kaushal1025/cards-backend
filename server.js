@@ -3,6 +3,9 @@ const cors = require('cors');
 const mongoose = require('mongoose');
 require('dotenv').config();
 
+const apiRouter = require('./routes');
+const { notFound, errorHandler } = require('./middleware/errorHandler');
+
 // --- Database -------------------------------------------------------------
 const url = process.env.MONGODB_URI || 'mongodb://localhost:27017/CardsDB';
 mongoose
@@ -18,10 +21,12 @@ app.use(cors());
 // Turn JSON request bodies into a JavaScript object at req.body
 app.use(express.json());
 
-// GET /api/ping - Health check
-app.get('/api/ping', (req, res) => {
-  res.status(200).json({ message: 'Hello World' });
-});
+// Every API route lives under /api and is defined in ./routes
+app.use('/api', apiRouter);
+
+// Must come after all routes: unknown routes, then the central error handler
+app.use(notFound);
+app.use(errorHandler);
 
 // Start listening only when run directly (node server.js), not when a test
 // file loads the app with require()
