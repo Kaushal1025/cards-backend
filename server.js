@@ -1,6 +1,14 @@
 const express = require('express');
 const cors = require('cors');
+const mongoose = require('mongoose');
 require('dotenv').config();
+
+// --- Database -------------------------------------------------------------
+const url = process.env.MONGODB_URI || 'mongodb://localhost:27017/CardsDB';
+mongoose
+  .connect(url)
+  .then(() => console.log('MongoDB connected successfully via Mongoose'))
+  .catch((err) => console.error('MongoDB connection error:', err));
 
 // --- App ------------------------------------------------------------------
 const app = express();

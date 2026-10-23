@@ -10,7 +10,35 @@ services:
     environment:
       - PORT=5000
       - NODE_ENV=development
+      - MONGODB_URI=mongodb://mongodb:27017/CardsDB
     volumes:
       - .:/usr/src/app
       - /usr/src/app/node_modules
     command: npm run dev
+    depends_on:
+      mongodb:
+        condition: service_healthy
+
+  mongodb:
+    image: docker.io/mongo:7.0
+    container_name: mern_mongodb
+    restart: unless-stopped
+    # Reachable only from this machine (for tools like MongoDB Compass).
+    # Without 127.0.0.1, Docker would publish the database to the whole
+    # internet on a server, bypassing the firewall.
+    ports:
+      - "127.0.0.1:27017:27017"
+    environment:
+      - MONGO_INITDB_DATABASE=CardsDB
+    volumes:
+      - mongo_data:/data/db
+      - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  mongo_data:
