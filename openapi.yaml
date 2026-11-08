@@ -1,0 +1,407 @@
+openapi: 3.0.3
+info:
+  title: CardsDB REST API
+  description: |
+    RESTful backend API for the MERN Cards demo application.
+
+    **Authentication:** register (`POST /api/users`) or log in (`POST /api/auth/login`)
+    to get a token, then click **Authorize** and paste it. Protected routes expect
+    the header `Authorization: Bearer <token>`. Users can only read and change their
+    own account and cards.
+  version: 2.0.0
+  contact:
+    name: John Aedo
+servers:
+  - url: http://localhost:5000
+    description: Local Development Server
+  - url: http://mern.johnaedo.com:5000
+    description: Production Server
+
+tags:
+  - name: Health
+  - name: Auth
+  - name: Users
+  - name: Cards
+
+paths:
+  /api/ping:
+    get:
+      tags: [Health]
+      summary: Health check
+      responses:
+        '200':
+          description: The server is running
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Hello World
+
+  /api/auth/login:
+    post:
+      tags: [Auth]
+      summary: Log in
+      description: Checks a login and password and returns a token for the protected routes.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Logged in
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          description: Wrong login or password
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/users:
+    post:
+      tags: [Users]
+      summary: Register a new user
+      description: Creates an account and logs the new user in. Any `role` in the body is ignored.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: User created
+          headers:
+            Location:
+              description: URL of the new user
+              schema:
+                type: string
+                example: /api/users/6accf6233d21392120c442db
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /api/users/{userId}:
+    parameters:
+      - $ref: '#/components/parameters/UserId'
+    get:
+      tags: [Users]
+      summary: Get your own account
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: The user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/users/{userId}/cards:
+    parameters:
+      - $ref: '#/components/parameters/UserId'
+    get:
+      tags: [Cards]
+      summary: List your cards
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: search
+          in: query
+          required: false
+          description: Case-insensitive match on player name, card name, team, or publisher, or an exact card value
+          schema:
+            type: string
+            example: speedy
+      responses:
+        '200':
+          description: The user's cards
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Card'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags: [Cards]
+      summary: Add a card
+      description: Send either `playerName` (a player card) or `card` (a simple named card). Card names must be unique per user.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CardInput'
+      responses:
+        '201':
+          description: Card created
+          headers:
+            Location:
+              description: URL of the new card
+              schema:
+                type: string
+                example: /api/cards/6accf63063fba309139648cb
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Card'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /api/cards/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: The card's id
+        schema:
+          type: string
+          example: 6accf63063fba309139648cb
+    get:
+      tags: [Cards]
+      summary: Get one of your cards
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: The card
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Card'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags: [Cards]
+      summary: Update one of your cards
+      description: Changes only the fields sent. A card's owner can't be changed.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CardInput'
+      responses:
+        '200':
+          description: The updated card
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Card'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [Cards]
+      summary: Delete one of your cards
+      security:
+        - bearerAuth: []
+      responses:
+        '204':
+          description: Deleted
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    UserId:
+      name: userId
+      in: path
+      required: true
+      description: The user's id. Must be the logged-in user.
+      schema:
+        type: string
+        example: 6accf6233d21392120c442db
+
+  schemas:
+    LoginRequest:
+      type: object
+      required: [login, password]
+      properties:
+        login:
+          type: string
+          example: johnaedo
+        password:
+          type: string
+          format: password
+          example: ucf123!
+
+    RegisterRequest:
+      type: object
+      required: [login, password]
+      properties:
+        firstName:
+          type: string
+          example: Moxie
+        lastName:
+          type: string
+          example: Aedo
+        login:
+          type: string
+          example: moxie
+        password:
+          type: string
+          format: password
+          example: foobar123!
+        email:
+          type: string
+          example: moxie@example.com
+
+    User:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: 6accf6233d21392120c442db
+        firstName:
+          type: string
+        lastName:
+          type: string
+        login:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
+          example: user
+
+    AuthResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          description: 'Send as "Authorization: Bearer <token>" on protected routes'
+        user:
+          $ref: '#/components/schemas/User'
+
+    CardInput:
+      type: object
+      properties:
+        playerName:
+          type: string
+          example: Bugs Bunny
+        teamName:
+          type: string
+          example: Tune Squad
+        cardValue:
+          type: number
+          example: 15000
+        publisher:
+          type: string
+          example: Warner Collectibles
+        card:
+          type: string
+          description: Name of a simple card, used instead of playerName
+
+    Card:
+      allOf:
+        - $ref: '#/components/schemas/CardInput'
+        - type: object
+          properties:
+            _id:
+              type: string
+              example: 6accf63063fba309139648cb
+            userId:
+              type: string
+              description: Id of the user who owns the card
+              example: 6accf6233d21392120c442db
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+
+  responses:
+    BadRequest:
+      description: Missing or invalid input, or a malformed id
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: No token, or the token is invalid or expired
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Forbidden:
+      description: The resource belongs to another user
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: No resource with that id
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Conflict:
+      description: A resource with that name already exists
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'

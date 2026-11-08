@@ -7,6 +7,7 @@ router.get('/ping', (req, res) => {
   res.status(200).json({ message: 'Hello World' });
 });
 
+router.use('/docs', require('./docs'));
 router.use('/auth', require('./auth'));
 router.use('/users', require('./users'));
 router.use('/cards', require('./cards'));

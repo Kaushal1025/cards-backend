@@ -21,6 +21,9 @@ app.use(cors());
 // Turn JSON request bodies into a JavaScript object at req.body
 app.use(express.json());
 
+// Convenience redirect so tools can find the spec at the site root
+app.get('/openapi.yaml', (req, res) => res.redirect('/api/docs/openapi.yaml'));
+
 // Every API route lives under /api and is defined in ./routes
 app.use('/api', apiRouter);
 
