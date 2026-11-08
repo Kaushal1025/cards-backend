@@ -1,0 +1,61 @@
+info:
+  name: Add Card
+  type: http
+  seq: 6
+
+http:
+  method: POST
+  url: "{{baseURL}}/api/users/{{userId}}/cards"
+  body:
+    type: json
+    data: |-
+      {
+        "playerName": "{{cardName}}",
+        "teamName": "Test Squad",
+        "cardValue": 1234,
+        "publisher": "Bruno Collectibles"
+      }
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+runtime:
+  scripts:
+    - type: before-request
+      code: |-
+        // A user can't own two cards with the same name, so make each run unique
+        bru.setVar("cardName", `Test Card ${Date.now()}`);
+    - type: after-response
+      code: |-
+        // Save the new card's id for the get, update, and delete requests
+        if (res.getStatus() === 201) {
+          bru.setVar("cardId", res.getBody()._id);
+        }
+    - type: tests
+      code: |-
+        const body = res.getBody();
+
+        test("responds 201 Created", function () {
+          expect(res.getStatus()).to.equal(201);
+        });
+
+        test("sets a Location header pointing at the new card", function () {
+          expect(res.getHeader("location")).to.equal(`/api/cards/${body._id}`);
+        });
+
+        test("returns the card with the fields that were sent", function () {
+          expect(body.playerName).to.equal(bru.getVar("cardName"));
+          expect(body.teamName).to.equal("Test Squad");
+          expect(body.cardValue).to.equal(1234);
+          expect(body.publisher).to.equal("Bruno Collectibles");
+        });
+
+        test("the card belongs to the logged-in user", function () {
+          expect(body.userId).to.equal(bru.getVar("userId"));
+        });
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

@@ -9,5 +9,6 @@ router.get('/ping', (req, res) => {
 
 router.use('/auth', require('./auth'));
 router.use('/users', require('./users'));
+router.use('/cards', require('./cards'));
 
 module.exports = router;

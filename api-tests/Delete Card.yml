@@ -1,0 +1,25 @@
+info:
+  name: Delete Card
+  type: http
+  seq: 9
+
+http:
+  method: DELETE
+  url: "{{baseURL}}/api/cards/{{cardId}}"
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        test("responds 204 No Content", function () {
+          expect(res.getStatus()).to.equal(204);
+        });
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

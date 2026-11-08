@@ -1,0 +1,26 @@
+info:
+  name: Get Card
+  type: http
+  seq: 7
+
+http:
+  method: GET
+  url: "{{baseURL}}/api/cards/{{cardId}}"
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        test("responds 200 with the card just added", function () {
+          expect(res.getStatus()).to.equal(200);
+          expect(res.getBody()._id).to.equal(bru.getVar("cardId"));
+        });
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

@@ -1,0 +1,38 @@
+info:
+  name: Update Card
+  type: http
+  seq: 8
+
+http:
+  method: PATCH
+  url: "{{baseURL}}/api/cards/{{cardId}}"
+  body:
+    type: json
+    data: |-
+      {
+        "cardValue": 4321
+      }
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        const body = res.getBody();
+
+        test("responds 200 OK", function () {
+          expect(res.getStatus()).to.equal(200);
+        });
+
+        test("changes only the fields sent", function () {
+          expect(body.cardValue).to.equal(4321);
+          expect(body.playerName).to.equal(bru.getVar("cardName"));
+        });
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
