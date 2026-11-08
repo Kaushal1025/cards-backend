@@ -1,0 +1,40 @@
+# systemd *user* service that keeps the Cards API running on the droplet.
+# It belongs to the deploy user, who can start, stop, and restart it
+# without sudo or root. (Port 5000 is above 1024, so no special
+# privileges are needed to listen on it.)
+#
+# Install it once, as the deploy user (see tutorials/07-deploy-backend):
+#   ssh deploy@YOUR-SERVER "mkdir -p ~/.config/systemd/user"
+#   scp deploy/cards-api.service deploy@YOUR-SERVER:~/.config/systemd/user/
+#   ssh deploy@YOUR-SERVER "systemctl --user daemon-reload && systemctl --user enable cards-api"
+# and once, as root, let it run without anyone logged in:
+#   loginctl enable-linger deploy
+#
+# Useful commands on the droplet (as the deploy user):
+#   systemctl --user status cards-api      is it running?
+#   journalctl --user-unit cards-api -f    follow its log (Ctrl+C to stop)
+#   systemctl --user restart cards-api     restart it (the deploy workflow does this)
+
+[Unit]
+Description=Cards API (Node.js + Express)
+
+[Service]
+# The deploy workflow copies the code here. server.js reads its settings
+# from the .env file in this folder.
+WorkingDirectory=/opt/cards-api
+
+# nvm installed Node inside the deploy user's home folder (%h), where
+# systemd can't find it on its own. nvm-exec loads nvm, switches to the
+# Node version in NODE_VERSION, and then runs the command.
+Environment=NODE_VERSION=26
+Environment=NODE_ENV=production
+ExecStart=%h/.nvm/nvm-exec node server.js
+
+# Start again automatically if it crashes
+Restart=always
+RestartSec=5
+
+[Install]
+# Start when deploy's service manager starts, which (with lingering
+# turned on) is when the droplet boots
+WantedBy=default.target

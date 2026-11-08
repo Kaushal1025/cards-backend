@@ -1,0 +1,87 @@
+name: Test and Deploy API
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  test-and-deploy:
+    runs-on: ubuntu-latest
+
+    # Repository secrets (Settings > Secrets and variables > Actions):
+    #   SSH_HOST         the droplet's IP address
+    #   SSH_USER         the user to log in as (deploy)
+    #   SSH_PRIVATE_KEY  a private key whose public half is in that user's
+    #                    ~/.ssh/authorized_keys on the droplet
+    env:
+      SSH_HOST: ${{ secrets.SSH_HOST }}
+      SSH_USER: ${{ secrets.SSH_USER }}
+      APP_DIR: /opt/cards-api
+
+    steps:
+      # --- Continuous integration: runs for every push and pull request ----
+      # If a test fails, the workflow stops and nothing is deployed.
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          # The same major version the droplet runs
+          node-version: 26
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run the tests
+        run: npm test
+
+      # --- Continuous deployment: only for pushes, not pull requests -------
+      - name: Explain a skipped deploy
+        if: github.event_name == 'push' && env.SSH_HOST == ''
+        run: echo "::warning::Deploy skipped. Add the SSH_HOST, SSH_USER, and SSH_PRIVATE_KEY repository secrets to deploy."
+
+      - name: Set up SSH
+        if: github.event_name == 'push' && env.SSH_HOST != ''
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts
+
+      # Copy only what the API needs to run. --delete removes files you've
+      # deleted from the repository; excluded paths are never touched, so the
+      # server's own .env and node_modules stay put.
+      - name: Copy the API code to the droplet
+        if: github.event_name == 'push' && env.SSH_HOST != ''
+        run: >
+          rsync -az --delete --no-owner --no-group
+          --exclude '.git/' --exclude '.github/' --exclude 'node_modules/'
+          --exclude '.env' --exclude 'tests/' --exclude 'api-tests/' --exclude 'tutorials/'
+          -e "ssh -i ~/.ssh/deploy_key"
+          ./ "$SSH_USER@$SSH_HOST:$APP_DIR/"
+
+      # Install production dependencies only (no nodemon, Vitest, ...),
+      # restart the service, and fail the deploy if the API doesn't answer.
+      # SSH commands from here don't load nvm, so nvm-exec runs npm with
+      # Node 26, exactly as the service runs node.
+      # cards-api is a user service that belongs to the deploy user, so
+      # restarting it needs no sudo. XDG_RUNTIME_DIR tells systemctl --user
+      # where to find deploy's service manager. (\$ means "expand this on
+      # the droplet", not here on GitHub.)
+      - name: Install and restart on the droplet
+        if: github.event_name == 'push' && env.SSH_HOST != ''
+        run: |
+          ssh -i ~/.ssh/deploy_key "$SSH_USER@$SSH_HOST" "
+            set -e
+            export XDG_RUNTIME_DIR=/run/user/\$(id -u)
+            cd $APP_DIR
+            NODE_VERSION=26 ~/.nvm/nvm-exec npm ci --omit=dev
+            systemctl --user restart cards-api
+            curl -fsS --retry 10 --retry-delay 2 --retry-connrefused http://localhost:5000/api/ping
+          "
