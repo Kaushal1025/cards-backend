@@ -83,5 +83,5 @@ jobs:
             cd $APP_DIR
             NODE_VERSION=26 ~/.nvm/nvm-exec npm ci --omit=dev
             systemctl --user restart cards-api
-            curl -fsS --retry 10 --retry-delay 2 --retry-connrefused http://localhost:5000/api/ping
+            curl -fsS --retry 10 --retry-delay 2 --retry-connrefused http://localhost:5001/api/ping
           "
